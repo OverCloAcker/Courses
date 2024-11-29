@@ -8,7 +8,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 
-namespace Courses.WebAPI.OpenApi;
+namespace Courses.WebAPI.ApiVersioning;
 
 internal static class OpenApiOptionsExtensions
 {
@@ -56,6 +56,11 @@ internal static class OpenApiOptionsExtensions
             {
                 if (text.Length > 0)
                 {
+                    if (text[^1] != '.')
+                    {
+                        text.Append('.');
+                    }
+                    
                     text.Append(' ');
                 }
 

@@ -1,0 +1,6 @@
+﻿services:
+  courses.webapi:
+    image: courses.webapi
+    build:
+      context: .
+      dockerfile: Courses.WebAPI/Dockerfile

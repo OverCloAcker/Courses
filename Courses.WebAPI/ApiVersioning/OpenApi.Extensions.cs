@@ -2,14 +2,16 @@ using Asp.Versioning;
 using Courses.WebAPI.Extensions;
 using Scalar.AspNetCore;
 
-namespace Courses.WebAPI.OpenApi;
+namespace Courses.WebAPI.ApiVersioning;
 
-public static class OpenApiExtensions
+public static partial class Extensions
 {
     public static IApplicationBuilder UseDefaultOpenApi(this WebApplication app)
     {
         var configuration = app.Configuration;
         var openApiSection = configuration.GetSection("OpenApi");
+        var apiVersioningOptions = new ApiVersioningOptions();
+        app.Configuration.GetSection(ApiVersioningOptions.ApiVersions).Bind(apiVersioningOptions);
 
         if (!openApiSection.Exists())
         {
@@ -18,18 +20,17 @@ public static class OpenApiExtensions
 
         app.MapOpenApi();
 
-        if (app.Environment.IsDevelopment())
-        {
-            app.MapScalarApiReference(options =>
-                {
-                    options
-                        .WithDefaultFonts(false)
-                        .WithTheme(ScalarTheme.DeepSpace)
-                        .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-                }
-            );
-            app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();
-        }
+        app.MapScalarApiReference(options =>
+            {
+                options
+                    .WithEndpointPrefix("/api/{documentName}")
+                    .WithDefaultFonts(false)
+                    .WithTheme(ScalarTheme.DeepSpace)
+                    .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+            }
+        );
+        app.MapGet("/api", () => Results.Redirect($"/api/v{apiVersioningOptions.NewestActiveApiVersion}"))
+            .ExcludeFromDescription();
 
         return app;
     }
@@ -40,6 +41,8 @@ public static class OpenApiExtensions
     {
         var openApi = builder.Configuration.GetSection("OpenApi");
         var identitySection = builder.Configuration.GetSection("Identity");
+        var apiVersioningOptions = new ApiVersioningOptions();
+        builder.Configuration.GetSection(ApiVersioningOptions.ApiVersions).Bind(apiVersioningOptions);
 
         var scopes = identitySection.Exists()
             ? identitySection.GetRequiredSection("Scopes").GetChildren().ToDictionary(p => p.Key, p => p.Value)
@@ -57,10 +60,10 @@ public static class OpenApiExtensions
             // this will format the version as "'v'major[.minor][-status]"
             var versioned = apiVersioning.AddApiExplorer(options =>
             {
-                options.GroupNameFormat = "'v'VVV";
+                options.GroupNameFormat = "'v'VVVV";
                 options.SubstituteApiVersionInUrl = true;
             });
-            string[] versions = ["v1", "v2", "v3"];
+            var versions = apiVersioningOptions.ProvidedApiVersions;
             foreach (var description in versions)
             {
                 builder.Services.AddOpenApi(description, options =>
