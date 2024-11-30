@@ -23,7 +23,8 @@ public static class WeatherEndpoints
     {
         api
             .MapGet("weatherforecast", GetWeatherForecastAsync)
-            .WithName(WeatherForecastEndpointName);
+            .WithName(WeatherForecastEndpointName)
+            .Produces<IEnumerable<WeatherForecast>>();
     }
 
     private static async Task<IResult> GetWeatherForecastAsync(CancellationToken cancellationToken)
