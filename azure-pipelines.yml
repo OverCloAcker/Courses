@@ -1,0 +1,22 @@
+pool:
+  vmImage: ubuntu-22.04
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Install .NET9'
+  inputs:
+    packageType: 'sdk'
+    version: '9.x'
+    includePreviewVersions: false
+
+# - task: DotNetCoreCLI@2
+#   inputs:
+#     command: 'restore'
+#     feedsToUse: 'config'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+    projects: 'Courses.sln'
+    arguments: '--no-restore -c $(BUILDCONFIGURATION)'
+  displayName: 'Build .NET'
