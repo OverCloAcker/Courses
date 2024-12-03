@@ -18,5 +18,5 @@ steps:
   inputs:
     command: 'build'
     projects: 'Courses.sln'
-    arguments: '--no-restore -c $(BUILDCONFIGURATION)'
+    arguments: '-c Release'
   displayName: 'Build .NET'
