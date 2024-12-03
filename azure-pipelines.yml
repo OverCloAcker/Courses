@@ -14,6 +14,8 @@ steps:
 #     command: 'restore'
 #     feedsToUse: 'config'
 
+- script: dotnet --list-sdks
+
 - task: DotNetCoreCLI@2
   inputs:
     command: 'build'
