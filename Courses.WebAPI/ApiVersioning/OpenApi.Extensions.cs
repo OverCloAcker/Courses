@@ -6,7 +6,7 @@ namespace Courses.WebAPI.ApiVersioning;
 
 public static partial class Extensions
 {
-    public static IApplicationBuilder UseDefaultOpenApi(this WebApplication app)
+    private static IApplicationBuilder UseDefaultOpenApi(this WebApplication app)
     {
         var configuration = app.Configuration;
         var openApiSection = configuration.GetSection("OpenApi");
@@ -35,7 +35,7 @@ public static partial class Extensions
         return app;
     }
 
-    public static IHostApplicationBuilder AddDefaultOpenApi(
+    private static IHostApplicationBuilder AddDefaultOpenApi(
         this IHostApplicationBuilder builder,
         IApiVersioningBuilder? apiVersioning = default)
     {
@@ -63,13 +63,15 @@ public static partial class Extensions
                 options.GroupNameFormat = "'v'VVVV";
                 options.SubstituteApiVersionInUrl = true;
             });
-            var versions = apiVersioningOptions.ProvidedApiVersions;
+            var versions = apiVersioningOptions.AvailableApiVersions;
+            var supportedApiVersions = apiVersioningOptions.SupportedApiVersions;
+            var deprecatedApiVersions = apiVersioningOptions.DeprecatedApiVersions;
             foreach (var description in versions)
             {
                 builder.Services.AddOpenApi(description, options =>
                 {
                     options.ApplyApiVersionInfo(openApi.GetRequiredValue("Document:Title"),
-                        openApi.GetRequiredValue("Document:Description"));
+                        openApi.GetRequiredValue("Document:Description"), supportedApiVersions, deprecatedApiVersions);
                     options.ApplyAuthorizationChecks([.. scopes.Keys]);
                     options.ApplySecuritySchemeDefinitions();
                     options.ApplyOperationDeprecatedStatus();

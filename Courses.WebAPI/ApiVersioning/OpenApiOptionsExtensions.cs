@@ -1,4 +1,5 @@
 using System.Text;
+using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
 using Courses.WebAPI.Extensions;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +13,8 @@ namespace Courses.WebAPI.ApiVersioning;
 
 internal static class OpenApiOptionsExtensions
 {
-    public static OpenApiOptions ApplyApiVersionInfo(this OpenApiOptions options, string title, string description)
+    public static OpenApiOptions ApplyApiVersionInfo(this OpenApiOptions options, string title, string description,
+        ICollection<ApiVersion> supportedApiVersions, ICollection<ApiVersion> deprecatedApiVersions)
     {
         options.AddDocumentTransformer((document, context, cancellationToken) =>
         {
@@ -23,15 +25,20 @@ internal static class OpenApiOptionsExtensions
             {
                 return Task.CompletedTask;
             }
+
             document.Info.Version = apiDescription.ApiVersion.ToString();
             document.Info.Title = title;
-            document.Info.Description = BuildDescription(apiDescription, description);
+            document.Info.Description =
+                BuildDescription(apiDescription, description, supportedApiVersions, deprecatedApiVersions,
+                    versionedDescriptionProvider);
             return Task.CompletedTask;
         });
         return options;
     }
 
-    private static string BuildDescription(ApiVersionDescription api, string description)
+    private static string BuildDescription(ApiVersionDescription api, string description,
+        ICollection<ApiVersion> supportedApiVersions, ICollection<ApiVersion> deprecatedApiVersions,
+        IApiVersionDescriptionProvider versionedDescriptionProvider)
     {
         var text = new StringBuilder(description);
 
@@ -60,7 +67,7 @@ internal static class OpenApiOptionsExtensions
                     {
                         text.Append('.');
                     }
-                    
+
                     text.Append(' ');
                 }
 
@@ -88,8 +95,8 @@ internal static class OpenApiOptionsExtensions
                     text.Append("\">");
                     text.Append(
                         StringSegment.IsNullOrEmpty(link.Title)
-                        ? link.LinkTarget.OriginalString
-                        : link.Title.ToString());
+                            ? link.LinkTarget.OriginalString
+                            : link.Title.ToString());
                     text.Append("</a></li>");
                 }
 
@@ -98,6 +105,46 @@ internal static class OpenApiOptionsExtensions
                     text.Append("</ul>");
                 }
             }
+        }
+
+        if (supportedApiVersions.Count != 0)
+        {
+            text.Append("<h4>Supported API versions</h4><ul>");
+
+            foreach (var apiVersion in supportedApiVersions)
+            {
+                var formatedApiVersion = $"v{apiVersion.ToString()}";
+                text.Append("<li><a href=\"");
+                text.Append(formatedApiVersion);
+                text.Append("\">");
+                text.Append(formatedApiVersion);
+
+                var apiDescription = versionedDescriptionProvider?.ApiVersionDescriptions
+                    .SingleOrDefault(apiVersionDescription => apiVersionDescription.GroupName == formatedApiVersion);
+                if (apiDescription?.SunsetPolicy is { Date: { } when })
+                    text.Append(" - will be sunset on ")
+                        .Append(when.Date.ToShortDateString());
+
+                text.Append("</a></li>");
+            }
+
+            text.Append("</ul>");
+        }
+
+        if (deprecatedApiVersions.Count != 0)
+        {
+            text.Append("<h4>Deprecated API versions</h4><ul>");
+
+            foreach (var apiVersion in deprecatedApiVersions.Select(x => $"v{x.ToString()}"))
+            {
+                text.Append("<li><a href=\"");
+                text.Append(apiVersion);
+                text.Append("\">");
+                text.Append(apiVersion);
+                text.Append("</a></li>");
+            }
+
+            text.Append("</ul>");
         }
 
         return text.ToString();
@@ -166,7 +213,8 @@ internal static class OpenApiOptionsExtensions
 
     private class SecuritySchemeDefinitionsTransformer(IConfiguration configuration) : IOpenApiDocumentTransformer
     {
-        public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
+        public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context,
+            CancellationToken cancellationToken)
         {
             var identitySection = configuration.GetSection("Identity");
             if (!identitySection.Exists())
@@ -175,7 +223,8 @@ internal static class OpenApiOptionsExtensions
             }
 
             var identityUrlExternal = identitySection.GetRequiredValue("Url");
-            var scopes = identitySection.GetRequiredSection("Scopes").GetChildren().ToDictionary(p => p.Key, p => p.Value);
+            var scopes = identitySection.GetRequiredSection("Scopes").GetChildren()
+                .ToDictionary(p => p.Key, p => p.Value);
             var securityScheme = new OpenApiSecurityScheme
             {
                 Type = SecuritySchemeType.OAuth2,
@@ -190,8 +239,8 @@ internal static class OpenApiOptionsExtensions
                     }
                 }
             };
-            
-            document.Components ??= new();
+
+            document.Components ??= new OpenApiComponents();
             document.Components.SecuritySchemes.Add("oauth2", securityScheme);
             return Task.CompletedTask;
         }

@@ -8,11 +8,11 @@ public class ApiVersionManager
     private const string BaseNeutralApiUrl = "api";
     private const string BaseVersionedApiUrl = "api/v{version:apiVersion}";
 
-    public ApiVersionSet ApiVersionSet { get; private set; } = default!;
+    private ApiVersionSet _apiVersionSet = default!;
 
     public ApiVersionManager WithApiVersionSet(ApiVersionSet apiVersionSet)
     {
-        ApiVersionSet = apiVersionSet;
+        _apiVersionSet = apiVersionSet;
         return this;
     }
 
@@ -29,7 +29,7 @@ public class ApiVersionManager
         var routeGroup = endpoints
             .MapGroup($"{BaseVersionedApiUrl}/{urlPrefix}")
             .WithTags(groupName)
-            .WithApiVersionSet(ApiVersionSet);
+            .WithApiVersionSet(_apiVersionSet);
 
         foreach (var apiVersion in apiVersions)
             routeGroup.MapToApiVersion(apiVersion);
